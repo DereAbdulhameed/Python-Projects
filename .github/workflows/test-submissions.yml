@@ -1,0 +1,64 @@
+name: Test Python Challenge Submissions
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'challenges/**/solution.py'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'challenges/**/solution.py'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests with coverage
+      run: |
+        pytest challenges/ -v --cov=challenges --cov-report=term-missing --cov-report=html
+    
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      if: matrix.python-version == '3.11'
+      with:
+        name: coverage-report
+        path: htmlcov/
+    
+    - name: Comment test results on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const output = `## Test Results 🧪
+          
+          Python Version: ${{ matrix.python-version }}
+          
+          ✅ Tests completed! Check the workflow logs for detailed results.
+          
+          Keep up the great work! 🚀`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          });
